@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import argparse
 import logging
 import atomic.dockerapi as api
-from atomic.exceptions import AtomicError
 from cliff.command import Command
 
 
