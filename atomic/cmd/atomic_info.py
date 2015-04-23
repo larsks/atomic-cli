@@ -3,10 +3,10 @@ from __future__ import absolute_import
 import logging
 import textwrap
 import atomic.dockerapi as api
-from cliff.lister import Lister
+from cliff.show import ShowOne
 
 
-class AtomicInfo(Lister):
+class AtomicInfo(ShowOne):
 
     log = logging.getLogger(__name__)
 
@@ -22,6 +22,5 @@ class AtomicInfo(Lister):
         info = image.info()
         if args.extended:
             info.update(image.extra_info())
-        return (('Name', 'Value'), (
-            (k, textwrap.fill(v, width=60))
-            for k, v in info.items()))
+
+        return self.dict2columns(info)

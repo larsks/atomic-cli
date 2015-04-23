@@ -153,6 +153,14 @@ class Image (Inspectable):
 
         return special
 
+    @pim
+    def version(self):
+        try:
+            return (self.labels[field]
+                    for field in ['Name', 'Version', 'Release'])
+        except KeyError:
+            pass
+
 
 class Container (Inspectable):
     def is_running(self):
@@ -252,11 +260,3 @@ class AtomicContainer(Container):
 
     def uninstall(self):
         pass
-
-    def version(self):
-        info = self.image.info()
-        info['Name'] = self.name
-        try:
-            return '{Name}-{Version}-{Release}'.format(**info)
-        except KeyError:
-            pass

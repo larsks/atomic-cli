@@ -17,6 +17,7 @@ setup(name="atomic",
           ],
           'com.redhat.atomic': [
               'info = atomic.cmd.atomic_info:AtomicInfo',
+              'version = atomic.cmd.atomic_version:AtomicVersion',
               'update = atomic.cmd.atomic_update:AtomicUpdate',
               'run = atomic.cmd.atomic_run:AtomicRun',
           ],
