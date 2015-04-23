@@ -1,0 +1,2 @@
+class AtomicError(Exception):
+    pass
