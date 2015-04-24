@@ -270,7 +270,7 @@ class AtomicContainer(Container):
         else:
             cmdline += interactive_run_args
             if sys.stdin.isatty():
-                cmdline += '-t'
+                cmdline += ['-t']
 
         if self.spc:
             cmdline += spc_run_args
