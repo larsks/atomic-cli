@@ -7,6 +7,7 @@ from cliff.command import Command
 
 
 class AtomicUpdate(Command):
+    '''Ensure you have the latest version of an image.'''
 
     log = logging.getLogger(__name__)
 

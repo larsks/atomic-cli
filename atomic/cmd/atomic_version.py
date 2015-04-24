@@ -7,6 +7,7 @@ from cliff.command import Command
 
 
 class AtomicVersion(Command):
+    '''Return the Name-Version-Release string for an image.'''
 
     log = logging.getLogger(__name__)
 

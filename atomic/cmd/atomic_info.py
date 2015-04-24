@@ -7,6 +7,7 @@ from cliff.show import ShowOne
 
 
 class AtomicInfo(ShowOne):
+    '''Return metadata about an image.'''
 
     log = logging.getLogger(__name__)
 

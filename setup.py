@@ -20,6 +20,11 @@ setup(name="atomic",
               'version = atomic.cmd.atomic_version:AtomicVersion',
               'update = atomic.cmd.atomic_update:AtomicUpdate',
               'run = atomic.cmd.atomic_run:AtomicRun',
+              'stop = atomic.cmd.atomic_stop:AtomicStop',
+              'host = atomic.cmd.atomic_host:AtomicHost',
+              'install = atomic.cmd.atomic_install:AtomicInstall',
+              'uninstall = atomic.cmd.atomic_uninstall:AtomicUninstall',
+              'status = atomic.cmd.atomic_status:AtomicStatus',
           ],
       }
       )

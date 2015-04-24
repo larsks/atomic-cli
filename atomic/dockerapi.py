@@ -2,36 +2,48 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import sys
+import os
 import logging
 import json
 import subprocess
-import shlex
 from decorator import decorator
-
 
 docker_path = '/usr/bin/docker'
 default_cmd = ['/bin/sh']
 
-spc_run_command = (
-    'docker run -t -i --rm --privileged '
-    '-v /:/host -v /run:/run -v /etc/localtime:/etc/localtime '
-    '--net=host --ipc=host --pid=host '
-    '--name {name} '
-    '-e HOST=/host -e NAME={name} -e IMAGE={image} '
-    '{image}'
-)
+common_run_args = [
+    '--name', '{name}',
+    '-v', '/etc/localtime:/etc/localtime',
+    '-e', 'ATOMIC_NAME={name}',
+    '-e', 'ATOMIC_IMAGE={image}',
+]
 
-default_run_command = (
-    'docker run --name {name} '
-    '-e IMAGE={image} -e NAME={name} '
-    '-t -i --name {name} '
-    '{image}'
-)
+interactive_run_args = [
+    '-i', '--rm',
+]
+
+persistent_run_args = [
+    '-d',
+]
+
+spc_run_args = [
+    '--privileged',
+    '--net=host',
+    '--ipc=host',
+    '--pid=host',
+    '-e', 'ATOMIC_SPC=1',
+    '-v', '/:/host',
+    '-v', '/run:/run',
+    '-e', 'ATOMIC_HOST=/host',
+    '-e', 'ATOMIC_CONFDIR=$ATOMIC_CONFDIR',
+    '-e', 'ATOMIC_LOGDIR=$ATOMIC_LOGDIR',
+    '-e', 'ATOMIC_DATADIR=$ATOMIC_DATADIR',
+]
 
 
 def idocker(*args):
-    cmd = [docker_path]
-    subprocess.check_call(cmd + list(args))
+    cmd = [docker_path] + list(args)
+    subprocess.check_call(cmd)
 
 
 def docker(*args):
@@ -45,6 +57,12 @@ def docker(*args):
         raise subprocess.CalledProcessError(p.returncode, cmd, output=stdout)
 
     return stdout
+
+
+def is_namespaced(name):
+    return (':' in name
+            or '.' in name
+            or name.isupper())
 
 
 class Inspectable(dict):
@@ -81,6 +99,10 @@ class Inspectable(dict):
             return {}
 
         return self.config['Labels']
+
+    def get_boolean_label(self, label):
+        val = self.labels.get(label, 'false')
+        return val.lower() in ['1', 'true', 'yes']
 
     @property
     def id(self):
@@ -135,25 +157,18 @@ class Image (Inspectable):
         cmd = self.config.get('Cmd') or default_cmd
         return cmd
 
-    def get_list_label(self, label):
-        return shlex.split(self.labels[label])
-
-    def get_boolean_label(self, label):
-        return (self.labels.get(label, 'false').lower()
-                in ['true', 'yes'])
-
     @pim
     def info(self):
-        basic = dict((k, v) for k, v in self.labels.items()
-                     if ':' not in k and not k.isupper())
-        return basic
+        info = dict((k, v) for k, v in self.labels.items()
+                    if not is_namespaced(k))
+        return info
 
     @pim
     def extra_info(self):
-        special = dict((k, v) for k, v in self.labels.items()
-                       if ':' in k or k.isupper())
+        info = dict((k, v) for k, v in self.labels.items()
+                    if is_namespaced(k))
 
-        return special
+        return info
 
     @pim
     def version(self):
@@ -174,13 +189,23 @@ class Container (Inspectable):
                                                   'AttachStdout',
                                                   'AttachStderr']))
 
+    @property
+    def pid(self):
+        return self.get('State', {}).get('Pid')
+
+    @property
+    def address(self):
+        return self.get('NetworkSettings', {}).get('IPAddress')
+
     @refresh
     def delete(self, force=False):
+        self.log.info('deleting container %s',
+                      self.name)
         cmd = ['rm']
         if force:
             cmd.append('--force')
         cmd.append(self.id)
-        docker(*cmd)
+        idocker(*cmd)
 
     @refresh
     def start(self):
@@ -217,96 +242,147 @@ class AtomicContainer(Container):
 
         super(AtomicContainer, self).__init__(self.name)
 
-    def format_args(self, args):
+    def format(self, args):
         vars = {
             'name': self.name,
             'image': self.image.name,
+            'image_id': self.image.id,
         }
 
         return args.format(**vars)
 
     def environ(self):
         return {
-            'CONFDIR': self.format_arg('/etc/{name}'),
-            'LOGDIR': self.format_arg('/var/log/{name}'),
-            'DATADIR': self.format_arg('/var/lib/{name}'),
+            'ATOMIC_CONFDIR': self.format('/etc/{name}'),
+            'ATOMIC_LOGDIR': self.format('/var/log/{name}'),
+            'ATOMIC_DATADIR': self.format('/var/lib/{name}'),
         }
 
-    def remove(self):
-        pass
+    def persistent(self):
+        return self.image.get_boolean_label('io.projectatomic.atomic.persistent')
 
-    def get_command(self, which):
-        try:
-            return self.format_args(
-                self.image.labels['atomic:%s' % which])
-        except KeyError:
-            return
+    def build_run_command(self, oneshot=False):
+        cmdline = [docker_path, 'run']
+        cmdline += common_run_args
 
-    def get_stop_command(self):
-        return self.get_command('stop')
-
-    def get_install_command(self):
-        return self.get_command('install')
-
-    def get_uninstall_command(self):
-        return self.get_command('uninstall')
-
-    def get_run_command(self):
-        cmd = None
+        if self.persistent() and not oneshot:
+            cmdline += persistent_run_args
+        else:
+            cmdline += interactive_run_args
+            if sys.stdin.isatty():
+                cmdline += '-t'
 
         if self.spc:
-            cmd = spc_run_command
-        if not cmd:
-            cmd = self.image.labels.get('atomic:run')
-        if not cmd:
-            cmd = default_run_command
+            cmdline += spc_run_args
 
-        return self.format_args(cmd)
+        cmdline.append('{image}')
+
+        return ' '.join(cmdline)
+
+    def get_run_command(self):
+        if self.spc:
+            cmdline = self.build_run_command()
+        else:
+            cmdline = self.image.labels.get(
+                'io.projectatomic.atomic.run',
+                self.build_run_command())
+
+        return self.format(cmdline)
+
+    def get_install_command(self):
+        if self.spc:
+            cmdline = self.build_run_command(oneshot=True)
+        else:
+            cmdline = self.image.labels.get(
+                'io.projectatomic.atomic.install',
+                self.build_run_command(oneshot=True))
+
+        return self.format(cmdline)
+
+    def run_with_environ(self, cmd):
+        self.log.debug('running command: %s',
+                       cmd)
+        env = os.environ
+        env.update(self.environ())
+
+        subprocess.check_call(cmd,
+                              env=env,
+                              shell=True)
+
+    def create_persistent_container(self):
+        self.log.info('creating persistent container %s',
+                      self.name)
+        cmd = self.get_run_command()
+        self.run_with_environ(cmd)
 
     def run(self, cmd=None):
-        if self.is_running():
-            self.run_in_running_container(cmd)
-        elif self.exists():
-            self.run_in_stopped_container(cmd)
+        if self.persistent():
+            if not self.exists():
+                self.create_persistent_container()
+            elif not self.is_running():
+                self.start()
+
+            if cmd:
+                self.run_in_running_container(cmd)
         else:
+            if self.exists():
+                self.delete()
             self.run_in_new_container(cmd)
 
+    def install(self):
+        cmd = self.image.labels.get('io.projectatomic.atomic.install',
+                                    '/atomic/install')
+
+        self.run([cmd])
+
+    def uninstall(self):
+        cmd = self.image.labels.get('io.projectatomic.atomic.uninstall',
+                                    '/atomic/uninstall')
+
+        self.run([cmd])
+
     def run_in_running_container(self, cmd=None):
-        cmd = cmd or self.image.command()
+        if not cmd:
+            raise ValueError('command cannot be null')
 
-        args = ['docker', 'exec']
-        if self.is_interactive():
-            args.append('-ti')
-        args += [self.name] + cmd
-
+        cmd = ' '.join(cmd)
         self.log.info('running in %s: %s',
                       self.name,
                       cmd)
-        subprocess.check_call(' '.join(args),
-                              shell=True)
 
-    def run_in_stopped_container(self, cmd=None):
-        self.start()
-        self.run_in_running_container(cmd)
+        cmdline = 'docker exec -i %s %s %s' % (
+            '-t' if sys.stdin.isatty() else '',
+            self.name,
+            cmd)
+        self.run_with_environ(cmdline)
 
-    @refresh
     def run_in_new_container(self, cmd=None):
-        cmd = cmd or self.image.command()
-        runcmd = [self.get_run_command()]
-        self.log.info('creating container %s with command: %s',
+        cmd = ' '.join(cmd or self.image.command())
+        self.log.info('running in %s: %s',
                       self.name,
                       cmd)
 
-        subprocess.check_call(' '.join(runcmd + cmd),
-                              shell=True)
+        runcmd = self.get_run_command()
+        cmdline = '%s %s' % (
+            runcmd, cmd)
 
-    def install(self):
-        if not self.image.exists():
-            self.image.pull()
+        self.run_with_environ(cmdline)
 
-        runcmd = self.get_install_cmd()
-        self.log.info('installing container %s',
-                      self.name)
+    def stop(self):
+        if not self.is_running():
+            self.log.warn('cannot stop %s: '
+                          'container is not running.',
+                          self.name)
+            return
 
-    def uninstall(self):
-        pass
+        if not self.persistent():
+            self.log.warn('cannot stop %s: '
+                          'container is not persistent.',
+                          self.name)
+            return
+
+        cmd = self.image.labels.get('io.projectatomic.atomic.stop')
+        if cmd:
+            self.run_in_running_container([cmd])
+
+        super(AtomicContainer, self).stop()
