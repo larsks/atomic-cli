@@ -1,0 +1,4 @@
+#!/bin/sh
+
+docker build -t larsks/atomic-interactive -f Dockerfile.interactive .
+docker build -t larsks/atomic-persistent -f Dockerfile.persistent .

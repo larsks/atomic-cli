@@ -1,0 +1,1 @@
+* * * * * root atomic run --spc larsks/atomic-persistent /atomic/bin/update-time > /dev/null 2>&1

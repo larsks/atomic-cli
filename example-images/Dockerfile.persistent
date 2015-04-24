@@ -1,0 +1,10 @@
+FROM larsks/mini-httpd
+
+LABEL Vendor="Lars Kellogg-Stedman <lars@oddbit.com>"
+LABEL Version=1.0.0
+LABEL Release=1
+LABEL Summary="An example persistent image"
+
+LABEL io.projectatomic.atomic.persistent=true
+
+COPY atomic /atomic

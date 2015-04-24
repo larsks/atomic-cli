@@ -1,0 +1,4 @@
+#!/bin/sh
+
+rm -f /host/etc/cron.d/update-time
+

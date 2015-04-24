@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cp /atomic/cron.d/update-time /host/etc/cron.d/update-time
+
