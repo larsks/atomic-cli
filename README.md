@@ -55,7 +55,7 @@ Install the `larsks/atomic-persistent` container:
 
 This starts a simple webserver on port 80 and registers a cron job in `/etc/cron.d/update-time`.  Once started, we can see the status of the container with the `status` command:
 
-    # atomic status --spc larsks/atomic-persistent
+    # atomic status larsks/atomic-persistent
     +---------+--------------------------+
     | Field   | Value                    |
     +---------+--------------------------+
@@ -70,7 +70,7 @@ The `Address` field is blank here because we are running an SPC, which
 uses the host's network namespace.  We can also use the `atomic run`
 command to run a command inside the container:
 
-    # atomic run --spc larsks/atomic-persistent \
+    # atomic run larsks/atomic-persistent \
       cat /content/last-updated.txt
     INFO:atomic.dockerapi:running in atomic-persistent-spc: cat /content/last-updated.txt
     Fri Apr 24 14:16:01 EDT 2015
@@ -78,7 +78,7 @@ command to run a command inside the container:
 The `atomic uninstall` command will remove the cron job installed by
 `atomic install` and will delete the container:
 
-    # atomic uninstall --spc larsks/atomic-persistent
+    # atomic uninstall larsks/atomic-persistent
     INFO:atomic.dockerapi:running in atomic-persistent-spc: /atomic/uninstall
     INFO:atomic.dockerapi:deleting container atomic-persistent-spc
     a0899a1befc850f75b6de199fcee3aced6d74cacf02ee16f44617c0657362368

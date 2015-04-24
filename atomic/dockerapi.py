@@ -35,9 +35,6 @@ spc_run_args = [
     '-v', '/:/host',
     '-v', '/run:/run',
     '-e', 'ATOMIC_HOST=/host',
-    '-e', 'ATOMIC_CONFDIR=$ATOMIC_CONFDIR',
-    '-e', 'ATOMIC_LOGDIR=$ATOMIC_LOGDIR',
-    '-e', 'ATOMIC_DATADIR=$ATOMIC_DATADIR',
 ]
 
 
@@ -237,8 +234,6 @@ class AtomicContainer(Container):
         self.image = Image(image)
         self.name = name or self.image.default_container_name()
         self.spc = spc
-        if self.spc:
-            self.name += '-spc'
 
         super(AtomicContainer, self).__init__(self.name)
 
