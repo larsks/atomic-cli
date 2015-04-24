@@ -1,9 +1,11 @@
-FROM larsks/mini-httpd
+FROM alpine
 
 LABEL Vendor="Lars Kellogg-Stedman <lars@oddbit.com>"
 LABEL Version=1.0.0
 LABEL Release=1
 LABEL Summary="An example interactive image"
+
+RUN apk update; apk add tcpdump
 
 CMD ["/bin/sh"]
 
