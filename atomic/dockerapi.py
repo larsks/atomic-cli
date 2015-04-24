@@ -259,7 +259,8 @@ class AtomicContainer(Container):
         }
 
     def persistent(self):
-        return self.image.get_boolean_label('io.projectatomic.atomic.persistent')
+        return self.image.get_boolean_label(
+            'io.projectatomic.atomic.persistent')
 
     def build_run_command(self, oneshot=False):
         cmdline = [docker_path, 'run']
